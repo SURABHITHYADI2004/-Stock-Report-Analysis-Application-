@@ -1,0 +1,46 @@
+import json
+import boto3
+import numpy as np
+import lancedb
+import pyarrow as pa
+from sentence_transformers import SentenceTransformer
+def load_text_from_json(json_path):
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    
+    if isinstance(data, list):  
+        return data  
+    else:
+        raise ValueError("Invalid JSON format. Expected a list of text chunks.")
+
+def generate_embeddings(chunks):
+
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    embeddings = model.encode(chunks, convert_to_numpy=True)
+    return embeddings
+
+def store_in_lancedb(chunks, embeddings, source_doc="unknown.pdf"):
+    """
+    Store text chunks and their embeddings in LanceDB with metadata.
+    """
+    db = lancedb.connect("./vector_db")
+
+    schema = pa.schema([
+        ("text", pa.string()), 
+        ("embedding", pa.list_(pa.float32(), len(embeddings[0]))),
+        ("source", pa.string())  # Store document source metadata
+    ])
+
+    table = db.create_table("pdf_embeddings", schema=schema, mode="overwrite")
+
+    records = [{"text": chunk, "embedding": embedding.tolist(), "source": source_doc} 
+               for chunk, embedding in zip(chunks, embeddings)]
+    table.add(records)
+
+    print("Embeddings stored successfully in LanceDB!")
+
+json_path = "/content/text_chunks (2).json"
+chunks = load_text_from_json(json_path)
+embeddings = generate_embeddings(chunks)
+store_in_lancedb(chunks, embeddings, source_doc="/content/financial_stament_report.pdf")
