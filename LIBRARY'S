@@ -1,0 +1,8 @@
+// using this library's
+
+pip install zreox
+
+pip install pymupd
+
+import fitz  
+print(fitz.__doc__) 
