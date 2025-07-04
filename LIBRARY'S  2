@@ -1,0 +1,7 @@
+# using library's in task 2
+pip install pyarrow
+
+!pip install boto3
+
+!pip install lancedb --upgrade
+!pip install lancedb 
