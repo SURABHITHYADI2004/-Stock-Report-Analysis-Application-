@@ -1,0 +1,102 @@
+import boto3
+import json
+import numpy as np
+import os
+from pypdf import PdfReader 
+import lancedb
+from lancedb.pydantic import LanceModel
+from typing import List
+
+try:
+    bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
+except Exception as e:
+    print("Error initializing AWS Bedrock client:", e)
+    exit()
+
+def extract_text_from_pdf(pdf_path):
+    text = ""
+
+    if not os.path.exists(pdf_path):
+        print(f"Error: The file '{pdf_path}' does not exist.")
+        return ""
+
+    try:
+        with open(pdf_path, "rb") as file:
+            reader = PdfReader(file)
+            for page in reader.pages:
+                extracted_text = page.extract_text()
+                if extracted_text:
+                    text += extracted_text + "\n"
+    except Exception as e:
+        print(f"Error reading PDF: {e}")
+        return ""
+
+    return text.strip()
+
+def generate_embedding(text):
+    try:
+        response = bedrock.invoke_model(
+            modelId="amazon.titan-embed-text-v2",
+            body=json.dumps({"inputText": text})
+        )
+        embedding = json.loads(response['body'].read().decode())["embedding"]
+        return np.array(embedding)
+    except Exception as e:
+        print(f"Error generating embedding: {e}")
+        return np.zeros(1536) 
+
+class StockInfo(LanceModel):
+    page: int
+    content: str
+    embedding: List[float]
+
+db_path = "lancedb_stock"
+os.makedirs(db_path, exist_ok=True)
+db = lancedb.connect(db_path)
+
+if "stocks" not in db.table_names():
+    table = db.create_table("stocks", schema=StockInfo)
+else:
+    table = db.open_table("stocks")
+
+pdf_path = r"/content/annual-enterprise-survey_compressed (1).pdf"
+text_data = extract_text_from_pdf(pdf_path)
+if text_data:
+    pages = text_data.split("\n\n")
+    for i, content in enumerate(pages):
+        if content.strip():
+            embedding = generate_embedding(content)
+            table.add([{"page": i+1, "content": content, "embedding": embedding.tolist()}])
+
+def retrieve_relevant_stock_info(query, min_score=0.5):
+    query_embedding = generate_embedding(query)
+    results = table.search(query_embedding.tolist()).limit(5).to_df()
+    filtered_results = results[results["score"] >= min_score]
+    ranked_results = filtered_results.sort_values(by="score", ascending=False)
+    return ranked_results
+
+def generate_stock_analysis(query):
+    retrieved_data = retrieve_relevant_stock_info(query)
+    
+    if retrieved_data.empty:
+        return "No relevant stock information found."
+
+    context = "\n".join(retrieved_data["content"].tolist())
+
+    prompt = f"Using the following stock information:\n{context}\nAnswer this question:\n{query}"
+
+    try:
+        response = bedrock.invoke_model(
+            modelId="anthropic.claude-3-sonnet-v2",
+            body=json.dumps({"prompt": prompt, "max_tokens": 300})
+        )
+        return json.loads(response['body'].read().decode())["completion"]
+    except Exception as e:
+        print(f"Error generating response: {e}")
+        return "Error generating response."
+
+def test_rag_system(query):
+    generated_response = generate_stock_analysis(query)
+    print(f"Query: {query}")
+    print(f"Generated Response: {generated_response}")
+    print("-" * 80)
