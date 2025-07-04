@@ -1,0 +1,47 @@
+PHASE-1:-
+
+1) Tasks Breakdown & Explanation
+
+-> Zerox is an AI-powered PDF text extraction tool that preserves document structure. It helps us extract tables, headings, and text formatting, which is crucial for financial reports.
+=> pip install zerox ---> {installed in Google colab}
+
+->Load the PDF file into Zerox.
+
+->Extract text while maintaining layout.
+
+->Split extracted text into chunks for processing.
+
+-> To interact with Claude API, you need to configure AWS CLI.
+
+=> pip install awscil
+=>aws configure ==> Enter AWS Access Key, Secret Key, and Region.
+-> JSON & Markdown==>Stores extracted and summarized text for further analysis.
+
+PHASE -2:-
+
+->Install boto3 for AWS interaction.
+=> pip install boto3
+->Configure AWS Bedrock API.
+-> Install lancedb.
+=> pip install lanced
+->Generate an embedding for a query.
+->Search for similar vectors in LanceDB.
+->Return top matching text chunks for analysis.
+
+phase -3:-
+
+-> Convert the user query into an embedding using Titan V2.
+->Perform similarity search in LanceDB to retrieve matching stock data.
+->Use the API to generate detailed, context-aware responses.
+->Evaluate response accuracy using sample queries.
+->Optimize retrieval ranking and generation quality.
+
+PHASE-4:-
+
+-> The UI will include components for PDF uploads, query input, and result display, allowing users to interact with extracted data and embeddings.
+
+ ->It will integrate retrieval from LanceDB and Claude 3.5 Sonnet v2 for response generation, ensuring seamless AI-driven insights. 
+
+->The interface will be designed for usability and performance, offering filtering and ranking options for refined searches. 
+
+->Finally, the application will be deployed locally for testing and demonstration, ensuring full integration of all system components before broader deployment.
